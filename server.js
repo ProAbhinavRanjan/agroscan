@@ -318,6 +318,15 @@ app.post("/api/users/:userId/profile", upload.single("profile"), async (req, res
   }
 });
 
+
+// =====================================================
+// TEST SERVER
+// =====================================================
+app.get("/test", (req, res) => {
+  res.json({ status: "Server is running!" });
+});
+
+
 // =====================================================
 // START SERVER
 // =====================================================
@@ -325,3 +334,4 @@ app.listen(PORT, () => {
   console.log(`✅ AgroScan server running on http://localhost:${PORT}`);
   console.log(`👉 Active AI-Chat Provider: ${AI_PROVIDER}`);
 });
+
