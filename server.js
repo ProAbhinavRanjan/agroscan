@@ -1,14 +1,6 @@
 // -------------------------
-// AgroScan AI - Server.js
+// AgroScan AI - server.js
 // -------------------------
-// Author: ABHINAV RANJAN & Team
-// Company: AgroScan AI Solutions
-// Description:
-//  Main server file for AgroScan AI.
-//  Provides endpoints for Chat, Recommendation, User Management, and Profile handling.
-//  Supports both OpenAI and Hugging Face as AI providers.
-// -------------------------
-
 import express from "express";
 import dotenv from "dotenv";
 import bodyParser from "body-parser";
@@ -24,9 +16,10 @@ import { askHFRecommend } from "./huggingface-recommend-handler.js";
 import { askHFChat } from "./huggingface-chat-handler.js";
 
 dotenv.config();
+
 const app = express();
 const PORT = process.env.PORT || 3000;
-const AI_PROVIDER = process.env.AI_PROVIDER || "openai"; // "openai" or "huggingface"
+const AI_PROVIDER = process.env.AI_PROVIDER || "openai";
 
 // -------------------------
 // Middleware
@@ -34,66 +27,59 @@ const AI_PROVIDER = process.env.AI_PROVIDER || "openai"; // "openai" or "hugging
 app.use(cors());
 app.use(bodyParser.json());
 
-// Multer setup for profile image uploads (in memory)
-const storage = multer.memoryStorage();
-const upload = multer({ storage });
+// Multer setup for profile image uploads (memory storage)
+const upload = multer({ storage: multer.memoryStorage() });
 
 // -------------------------
-// MySQL Connection Pool
+// MySQL Pool
 // -------------------------
 const db = mysql.createPool({
-  host: process.env.DB_HOST || "localhost",
-  user: process.env.DB_USER || "root",
-  password: process.env.DB_PASSWORD || "",
-  database: process.env.DB_NAME || "agroscan_ai",
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
 });
 
 // -------------------------
 // Health Check
 // -------------------------
 app.get("/", (req, res) => {
-  res.send(`🌱 AgroScan AI Server Running... (Active Provider: ${AI_PROVIDER})`);
+  res.send(`🌱 AgroScan AI Server Running (Provider: ${AI_PROVIDER})`);
 });
 
 // =====================================================
-// RECOMMENDATION ENDPOINT
+// RECOMMENDATION
 // =====================================================
 app.post("/recommend", async (req, res) => {
   try {
     const { ph, moisture, temperature, location, desiredCrop } = req.body;
-    if (!ph || !moisture)
-      return res.status(400).json({ error: "Soil pH and moisture are required" });
+    if (ph == null || moisture == null)
+      return res.status(400).json({ error: "Soil pH and moisture required" });
 
-    // Local Rule Engine
     const ruleResponse = ruleEngine(ph, moisture, temperature);
 
-    // AI Recommendation
-    let aiResponse;
-    if (AI_PROVIDER === "openai") {
-      aiResponse = await askAI({ ph, moisture, temperature, location, desiredCrop });
-    } else {
-      aiResponse = await askHFRecommend({ ph, moisture, temperature, location, desiredCrop });
-    }
+    const aiResponse = AI_PROVIDER === "openai"
+      ? await askAI({ ph, moisture, temperature, location, desiredCrop })
+      : await askHFRecommend({ ph, moisture, temperature, location, desiredCrop });
 
     res.json({ ruleEngine: ruleResponse, aiResponse });
   } catch (err) {
-    console.error("❌ Server error (recommend):", err);
+    console.error("❌ /recommend error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
 
 // =====================================================
-// CHAT ENDPOINT
+// CHAT
 // =====================================================
 app.post("/chat", async (req, res) => {
   try {
     const { message, userId } = req.body;
     if (!message || !userId)
-      return res.status(400).json({ error: "Message and userId are required" });
+      return res.status(400).json({ error: "Message and userId required" });
 
-    // Ensure session exists
     const [rows] = await db.query(
-      "SELECT session_id FROM chat_sessions WHERE user_id = ? AND ended_at IS NULL LIMIT 1",
+      "SELECT session_id FROM chat_sessions WHERE user_id=? AND ended_at IS NULL LIMIT 1",
       [userId]
     );
 
@@ -108,42 +94,34 @@ app.post("/chat", async (req, res) => {
       sessionId = rows[0].session_id;
     }
 
-    // Fetch last 20 messages
     const [historyRows] = await db.query(
-      "SELECT sender, message FROM ai_chats WHERE user_id = ? ORDER BY timestamp ASC LIMIT 20",
+      "SELECT sender, message FROM ai_chats WHERE user_id=? ORDER BY timestamp ASC LIMIT 20",
       [userId]
     );
 
-    // Save user message
     await db.query(
-      "INSERT INTO ai_chats (session_id, user_id, message, sender) VALUES (?, ?, ?, 'user')",
+      "INSERT INTO ai_chats (session_id,user_id,message,sender) VALUES (?,?,?, 'user')",
       [sessionId, userId, message]
     );
 
-    // Prepare messages for AI
-    const messagesForAI = historyRows.map((msg) => ({
-      role: msg.sender === "user" ? "user" : "assistant",
-      content: msg.message,
+    const messagesForAI = historyRows.map(m => ({
+      role: m.sender === "user" ? "user" : "assistant",
+      content: m.message
     }));
     messagesForAI.push({ role: "user", content: message });
 
-    // Call AI
-    let aiResponse;
-    if (AI_PROVIDER === "openai") {
-      aiResponse = await askAIChat(messagesForAI);
-    } else {
-      aiResponse = await askHFChat(messagesForAI);
-    }
+    const aiResponse = AI_PROVIDER === "openai"
+      ? await askAIChat(messagesForAI)
+      : await askHFChat(messagesForAI);
 
-    // Save AI response
     await db.query(
-      "INSERT INTO ai_chats (session_id, user_id, message, sender) VALUES (?, ?, ?, 'ai')",
+      "INSERT INTO ai_chats (session_id,user_id,message,sender) VALUES (?,?,?, 'ai')",
       [sessionId, userId, aiResponse]
     );
 
     res.json({ aiResponse });
   } catch (err) {
-    console.error("❌ Server error (/chat):", err);
+    console.error("❌ /chat error:", err);
     res.status(500).json({ aiResponse: "AI failed to respond" });
   }
 });
@@ -158,39 +136,35 @@ app.get("/api/chat/history/:userId", async (req, res) => {
 
   try {
     const [rows] = await db.query(
-      "SELECT chat_id AS id, sender, message, timestamp FROM ai_chats WHERE user_id = ? ORDER BY chat_id ASC LIMIT ? OFFSET ?",
+      "SELECT chat_id AS id, sender, message, timestamp FROM ai_chats WHERE user_id=? ORDER BY chat_id ASC LIMIT ? OFFSET ?",
       [userId, limit, offset]
     );
 
     const [totalRows] = await db.query(
-      "SELECT COUNT(*) AS total FROM ai_chats WHERE user_id = ?",
+      "SELECT COUNT(*) AS total FROM ai_chats WHERE user_id=?",
       [userId]
     );
 
-    const total = totalRows[0].total;
-
     res.json({
       history: rows,
-      hasMore: offset + rows.length < total,
+      hasMore: offset + rows.length < totalRows[0].total
     });
   } catch (err) {
-    console.error("❌ Error fetching chat history:", err);
+    console.error("❌ chat history error:", err);
     res.status(500).json({ error: "Failed to fetch chat history" });
   }
 });
 
 // Clear chat
 app.delete("/api/chat/clear/:userId", async (req, res) => {
-  const userId = req.params.userId;
   try {
     const [result] = await db.query(
-      "DELETE FROM ai_chats WHERE user_id = ?",
-      [userId]
+      "DELETE FROM ai_chats WHERE user_id=?",
+      [req.params.userId]
     );
-
     res.json({ success: true, deletedCount: result.affectedRows });
   } catch (err) {
-    console.error("❌ Error clearing chats:", err);
+    console.error("❌ clear chat error:", err);
     res.status(500).json({ success: false, error: "Failed to clear chats" });
   }
 });
@@ -198,137 +172,97 @@ app.delete("/api/chat/clear/:userId", async (req, res) => {
 // =====================================================
 // USER MANAGEMENT
 // =====================================================
-
-// =====================================================
-// USER MANAGEMENT (Profile + Address)
-// =====================================================
-
-// Get user info (with address)
 app.get("/api/users/:userId", async (req, res) => {
-  const userId = req.params.userId;
   try {
-    const [results] = await db.query(
-      "SELECT user_id, username, name, email, phone, street, city, state, zip, country FROM users WHERE user_id = ?",
-      [userId]
+    const [rows] = await db.query(
+      "SELECT user_id, username, name, email, phone, street, city, state, zip, country FROM users WHERE user_id=?",
+      [req.params.userId]
     );
+    if (!rows.length) return res.status(404).json({ error: "User not found" });
 
-    if (results.length === 0)
-      return res.status(404).json({ message: "User not found" });
-
-    const user = results[0];
+    const u = rows[0];
     res.json({
-      userId: user.user_id,
-      username: user.username,
-      name: user.name,
-      email: user.email,
-      phone: user.phone,
-      street: user.street,
-      city: user.city,
-      state: user.state,
-      zip: user.zip,
-      country: user.country,
-      profileUrl: `/api/users/${user.user_id}/profile`,
+      userId: u.user_id, username: u.username, name: u.name, email: u.email,
+      phone: u.phone, street: u.street, city: u.city, state: u.state, zip: u.zip,
+      country: u.country, profileUrl: `/api/users/${u.user_id}/profile`
     });
   } catch (err) {
-    console.error("❌ Server error (get user):", err);
+    console.error("❌ get user error:", err);
     res.status(500).json({ error: "Database error" });
   }
 });
 
-// Update primary user info
 app.put("/api/users/:userId", async (req, res) => {
-  const userId = req.params.userId;
-  const { name, username, email, phone } = req.body;
-
   try {
+    const { name, username, email, phone } = req.body;
     const [result] = await db.query(
-      "UPDATE users SET name = ?, username = ?, email = ?, phone = ? WHERE user_id = ?",
-      [name, username, email, phone, userId]
+      "UPDATE users SET name=?, username=?, email=?, phone=? WHERE user_id=?",
+      [name, username, email, phone, req.params.userId]
     );
-
-    if (result.affectedRows === 0)
-      return res.status(404).json({ error: "User not found" });
-
+    if (!result.affectedRows) return res.status(404).json({ error: "User not found" });
     res.json({ success: true, message: "Primary info updated successfully" });
   } catch (err) {
-    console.error("❌ Error updating primary info:", err);
-    if (err.code === "ER_DUP_ENTRY") {
-      return res.status(409).json({ error: "Username or email already exists" });
-    }
+    console.error("❌ update primary error:", err);
+    if (err.code === "ER_DUP_ENTRY") return res.status(409).json({ error: "Username or email exists" });
     res.status(500).json({ error: "Server error" });
   }
 });
 
-// Update user address
 app.put("/api/users/:userId/address", async (req, res) => {
-  const userId = req.params.userId;
-  const { street, city, state, zip, country } = req.body;
-
   try {
+    const { street, city, state, zip, country } = req.body;
     const [result] = await db.query(
-      "UPDATE users SET street = ?, city = ?, state = ?, zip = ?, country = ? WHERE user_id = ?",
-      [street, city, state, zip, country, userId]
+      "UPDATE users SET street=?, city=?, state=?, zip=?, country=? WHERE user_id=?",
+      [street, city, state, zip, country, req.params.userId]
     );
-
-    if (result.affectedRows === 0)
-      return res.status(404).json({ error: "User not found" });
-
+    if (!result.affectedRows) return res.status(404).json({ error: "User not found" });
     res.json({ success: true, message: "Address updated successfully" });
   } catch (err) {
-    console.error("❌ Error updating address:", err);
+    console.error("❌ update address error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
 
-
-
-// Login
+// =====================================================
+// LOGIN / SIGNUP
+// =====================================================
 app.post("/api/login", async (req, res) => {
-  const { identifier, password } = req.body;
   try {
-    const [results] = await db.query(
-      "SELECT user_id, username, name, email, phone, password FROM users WHERE username = ? OR email = ? OR phone = ? LIMIT 1",
+    const { identifier, password } = req.body;
+    const [rows] = await db.query(
+      "SELECT * FROM users WHERE username=? OR email=? OR phone=? LIMIT 1",
       [identifier, identifier, identifier]
     );
+    if (!rows.length) return res.status(401).json({ error: "User not found" });
 
-    if (results.length === 0)
-      return res.status(401).json({ error: "User not found" });
-
-    const user = results[0];
-    if (user.password !== password)
-      return res.status(401).json({ error: "Incorrect password" });
+    const u = rows[0];
+    if (u.password !== password) return res.status(401).json({ error: "Incorrect password" });
 
     res.json({
-      userId: user.user_id,
-      username: user.username,
-      name: user.name,
-      email: user.email,
-      phone: user.phone,
-      profileUrl: `/api/users/${user.user_id}/profile`,
+      userId: u.user_id, username: u.username, name: u.name,
+      email: u.email, phone: u.phone, profileUrl: `/api/users/${u.user_id}/profile`
     });
   } catch (err) {
-    console.error("❌ Server error (login):", err);
+    console.error("❌ login error:", err);
     res.status(500).json({ error: "Database error" });
   }
 });
 
-// Signup
 app.post("/api/signup", async (req, res) => {
-  const { name, username, email, phone, password } = req.body;
-  if (!name || !username || !email || !phone || !password)
-    return res.status(400).json({ error: "All fields are required" });
-
   try {
+    const { name, username, email, phone, password } = req.body;
+    if (!name || !username || !email || !phone || !password)
+      return res.status(400).json({ error: "All fields required" });
+
     const [result] = await db.query(
-      "INSERT INTO users (name, username, email, phone, password) VALUES (?, ?, ?, ?, ?)",
+      "INSERT INTO users (name, username, email, phone, password) VALUES (?,?,?,?,?)",
       [name, username, email, phone, password]
     );
 
-    res.status(201).json({ message: "User created successfully", userId: result.insertId });
+    res.status(201).json({ message: "User created", userId: result.insertId });
   } catch (err) {
-    console.error("❌ Database error (signup):", err);
-    if (err.code === "ER_DUP_ENTRY")
-      return res.status(409).json({ error: "Username, email, or phone already exists" });
+    console.error("❌ signup error:", err);
+    if (err.code === "ER_DUP_ENTRY") return res.status(409).json({ error: "Username/email/phone exists" });
     res.status(500).json({ error: "Database error" });
   }
 });
@@ -336,44 +270,39 @@ app.post("/api/signup", async (req, res) => {
 // =====================================================
 // PROFILE IMAGE
 // =====================================================
-
-// GET profile image
 app.get("/api/users/:userId/profile", async (req, res) => {
-  const userId = req.params.userId;
   try {
-    const [rows] = await db.query("SELECT profile FROM users WHERE user_id = ?", [userId]);
-    if (rows.length === 0 || !rows[0].profile)
-      return res.status(404).send("Profile image not found");
+    const [rows] = await db.query(
+      "SELECT profile FROM users WHERE user_id=?",
+      [req.params.userId]
+    );
+    if (!rows.length || !rows[0].profile) return res.status(404).send("Profile image not found");
 
     res.writeHead(200, { "Content-Type": "image/jpeg" });
     res.end(rows[0].profile);
   } catch (err) {
-    console.error("❌ Error fetching profile image:", err);
+    console.error("❌ profile get error:", err);
     res.status(500).send("Server error");
   }
 });
 
-// UPLOAD profile image
 app.post("/api/users/:userId/profile", upload.single("profile"), async (req, res) => {
-  const userId = req.params.userId;
-  if (!req.file) return res.status(400).json({ error: "No file uploaded" });
-
   try {
+    if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+
     const [result] = await db.query(
-      "UPDATE users SET profile = ? WHERE user_id = ?",
-      [req.file.buffer, userId]
+      "UPDATE users SET profile=? WHERE user_id=?",
+      [req.file.buffer, req.params.userId]
     );
 
-    if (result.affectedRows === 0)
-      return res.status(404).json({ error: "User not found" });
+    if (!result.affectedRows) return res.status(404).json({ error: "User not found" });
 
-    res.json({ message: "Profile image updated successfully", profileUrl: `/api/users/${userId}/profile` });
+    res.json({ message: "Profile image updated", profileUrl: `/api/users/${req.params.userId}/profile` });
   } catch (err) {
-    console.error("❌ Error updating profile image:", err);
+    console.error("❌ profile upload error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
-
 
 // =====================================================
 // TEST SERVER
@@ -382,15 +311,10 @@ app.get("/test", (req, res) => {
   res.json({ status: "Server is running!" });
 });
 
-
 // =====================================================
 // START SERVER
 // =====================================================
 app.listen(PORT, () => {
   console.log(`✅ AgroScan server running on http://localhost:${PORT}`);
-  console.log(`👉 Active AI-Chat Provider: ${AI_PROVIDER}`);
+  console.log(`👉 Active AI Provider: ${AI_PROVIDER}`);
 });
-
-
-
-
