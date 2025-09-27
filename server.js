@@ -199,12 +199,16 @@ app.delete("/api/chat/clear/:userId", async (req, res) => {
 // USER MANAGEMENT
 // =====================================================
 
-// Get user info
+// =====================================================
+// USER MANAGEMENT (Profile + Address)
+// =====================================================
+
+// Get user info (with address)
 app.get("/api/users/:userId", async (req, res) => {
   const userId = req.params.userId;
   try {
     const [results] = await db.query(
-      "SELECT user_id, username, name, email, phone FROM users WHERE user_id = ?",
+      "SELECT user_id, username, name, email, phone, street, city, state, zip, country FROM users WHERE user_id = ?",
       [userId]
     );
 
@@ -218,11 +222,40 @@ app.get("/api/users/:userId", async (req, res) => {
       name: user.name,
       email: user.email,
       phone: user.phone,
+      street: user.street,
+      city: user.city,
+      state: user.state,
+      zip: user.zip,
+      country: user.country,
       profileUrl: `/api/users/${user.user_id}/profile`,
     });
   } catch (err) {
     console.error("❌ Server error (get user):", err);
     res.status(500).json({ error: "Database error" });
+  }
+});
+
+// Update primary user info
+app.put("/api/users/:userId", async (req, res) => {
+  const userId = req.params.userId;
+  const { name, username, email, phone } = req.body;
+
+  try {
+    const [result] = await db.query(
+      "UPDATE users SET name = ?, username = ?, email = ?, phone = ? WHERE user_id = ?",
+      [name, username, email, phone, userId]
+    );
+
+    if (result.affectedRows === 0)
+      return res.status(404).json({ error: "User not found" });
+
+    res.json({ success: true, message: "Primary info updated successfully" });
+  } catch (err) {
+    console.error("❌ Error updating primary info:", err);
+    if (err.code === "ER_DUP_ENTRY") {
+      return res.status(409).json({ error: "Username or email already exists" });
+    }
+    res.status(500).json({ error: "Server error" });
   }
 });
 
@@ -240,7 +273,7 @@ app.put("/api/users/:userId/address", async (req, res) => {
     if (result.affectedRows === 0)
       return res.status(404).json({ error: "User not found" });
 
-    res.json({ message: "Address updated successfully" });
+    res.json({ success: true, message: "Address updated successfully" });
   } catch (err) {
     console.error("❌ Error updating address:", err);
     res.status(500).json({ error: "Server error" });
@@ -357,6 +390,7 @@ app.listen(PORT, () => {
   console.log(`✅ AgroScan server running on http://localhost:${PORT}`);
   console.log(`👉 Active AI-Chat Provider: ${AI_PROVIDER}`);
 });
+
 
 
 
