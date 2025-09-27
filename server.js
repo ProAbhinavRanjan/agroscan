@@ -226,40 +226,27 @@ app.get("/api/users/:userId", async (req, res) => {
   }
 });
 
-// Get user info with address
-app.get("/api/users/:userId", async (req, res) => {
+// Update user address
+app.put("/api/users/:userId/address", async (req, res) => {
   const userId = req.params.userId;
+  const { street, city, state, zip, country } = req.body;
+
   try {
-    const [results] = await db.query(
-      `SELECT street, city, state, zip, country
-       FROM users WHERE user_id = ?`,
-      [userId]
+    const [result] = await db.query(
+      "UPDATE users SET street = ?, city = ?, state = ?, zip = ?, country = ? WHERE user_id = ?",
+      [street, city, state, zip, country, userId]
     );
 
-    if (results.length === 0)
-      return res.status(404).json({ message: "User not found" });
+    if (result.affectedRows === 0)
+      return res.status(404).json({ error: "User not found" });
 
-    const user = results[0];
-    res.json({
-      userId: user.user_id,
-      username: user.username,
-      name: user.name,
-      email: user.email,
-      phone: user.phone,
-      address: {
-        street: user.street,
-        city: user.city,
-        state: user.state,
-        zip: user.zip,
-        country: user.country
-      },
-      profileUrl: `/api/users/${user.user_id}/profile`
-    });
+    res.json({ message: "Address updated successfully" });
   } catch (err) {
-    console.error("❌ Server error (get user):", err);
-    res.status(500).json({ error: "Database error" });
+    console.error("❌ Error updating address:", err);
+    res.status(500).json({ error: "Server error" });
   }
 });
+
 
 
 // Login
@@ -370,6 +357,7 @@ app.listen(PORT, () => {
   console.log(`✅ AgroScan server running on http://localhost:${PORT}`);
   console.log(`👉 Active AI-Chat Provider: ${AI_PROVIDER}`);
 });
+
 
 
 
