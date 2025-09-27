@@ -231,8 +231,7 @@ app.get("/api/users/:userId", async (req, res) => {
   const userId = req.params.userId;
   try {
     const [results] = await db.query(
-      `SELECT user_id, username, name, email, phone,
-              street, city, state, zip, country
+      `SELECT street, city, state, zip, country
        FROM users WHERE user_id = ?`,
       [userId]
     );
@@ -371,5 +370,6 @@ app.listen(PORT, () => {
   console.log(`✅ AgroScan server running on http://localhost:${PORT}`);
   console.log(`👉 Active AI-Chat Provider: ${AI_PROVIDER}`);
 });
+
 
 
