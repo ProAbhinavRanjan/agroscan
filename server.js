@@ -226,6 +226,43 @@ app.get("/api/users/:userId", async (req, res) => {
   }
 });
 
+// Get user info with address
+app.get("/api/users/:userId", async (req, res) => {
+  const userId = req.params.userId;
+  try {
+    const [results] = await db.query(
+      `SELECT user_id, username, name, email, phone,
+              street, city, state, zip, country
+       FROM users WHERE user_id = ?`,
+      [userId]
+    );
+
+    if (results.length === 0)
+      return res.status(404).json({ message: "User not found" });
+
+    const user = results[0];
+    res.json({
+      userId: user.user_id,
+      username: user.username,
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+      address: {
+        street: user.street,
+        city: user.city,
+        state: user.state,
+        zip: user.zip,
+        country: user.country
+      },
+      profileUrl: `/api/users/${user.user_id}/profile`
+    });
+  } catch (err) {
+    console.error("❌ Server error (get user):", err);
+    res.status(500).json({ error: "Database error" });
+  }
+});
+
+
 // Login
 app.post("/api/login", async (req, res) => {
   const { identifier, password } = req.body;
@@ -334,4 +371,5 @@ app.listen(PORT, () => {
   console.log(`✅ AgroScan server running on http://localhost:${PORT}`);
   console.log(`👉 Active AI-Chat Provider: ${AI_PROVIDER}`);
 });
+
 
