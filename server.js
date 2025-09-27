@@ -15,6 +15,7 @@ import bodyParser from "body-parser";
 import cors from "cors";
 import multer from "multer";
 import mysql from "mysql2/promise";
+import bcrypt from "bcrypt";
 
 // Local modules
 import { ruleEngine } from "./ruleEngine.js";
@@ -64,10 +65,8 @@ app.post("/recommend", async (req, res) => {
     if (!ph || !moisture)
       return res.status(400).json({ error: "Soil pH and moisture are required" });
 
-    // Local Rule Engine
     const ruleResponse = ruleEngine(ph, moisture, temperature);
 
-    // AI Recommendation
     let aiResponse;
     if (AI_PROVIDER === "openai") {
       aiResponse = await askAI({ ph, moisture, temperature, location, desiredCrop });
@@ -120,14 +119,12 @@ app.post("/chat", async (req, res) => {
       [sessionId, userId, message]
     );
 
-    // Prepare messages for AI
     const messagesForAI = historyRows.map((msg) => ({
       role: msg.sender === "user" ? "user" : "assistant",
       content: msg.message,
     }));
     messagesForAI.push({ role: "user", content: message });
 
-    // Call AI
     let aiResponse;
     if (AI_PROVIDER === "openai") {
       aiResponse = await askAIChat(messagesForAI);
@@ -135,7 +132,6 @@ app.post("/chat", async (req, res) => {
       aiResponse = await askHFChat(messagesForAI);
     }
 
-    // Save AI response
     await db.query(
       "INSERT INTO ai_chats (session_id, user_id, message, sender) VALUES (?, ?, ?, 'ai')",
       [sessionId, userId, aiResponse]
@@ -179,7 +175,6 @@ app.get("/api/chat/history/:userId", async (req, res) => {
   }
 });
 
-// Clear chat
 app.delete("/api/chat/clear/:userId", async (req, res) => {
   const userId = req.params.userId;
   try {
@@ -187,7 +182,6 @@ app.delete("/api/chat/clear/:userId", async (req, res) => {
       "DELETE FROM ai_chats WHERE user_id = ?",
       [userId]
     );
-
     res.json({ success: true, deletedCount: result.affectedRows });
   } catch (err) {
     console.error("❌ Error clearing chats:", err);
@@ -198,12 +192,6 @@ app.delete("/api/chat/clear/:userId", async (req, res) => {
 // =====================================================
 // USER MANAGEMENT
 // =====================================================
-
-// =====================================================
-// USER MANAGEMENT (Profile + Address)
-// =====================================================
-
-// Get user info (with address)
 app.get("/api/users/:userId", async (req, res) => {
   const userId = req.params.userId;
   try {
@@ -235,7 +223,7 @@ app.get("/api/users/:userId", async (req, res) => {
   }
 });
 
-// Update primary user info
+// Update primary info
 app.put("/api/users/:userId", async (req, res) => {
   const userId = req.params.userId;
   const { name, username, email, phone } = req.body;
@@ -259,7 +247,7 @@ app.put("/api/users/:userId", async (req, res) => {
   }
 });
 
-// Update user address
+// Update address
 app.put("/api/users/:userId/address", async (req, res) => {
   const userId = req.params.userId;
   const { street, city, state, zip, country } = req.body;
@@ -280,9 +268,9 @@ app.put("/api/users/:userId/address", async (req, res) => {
   }
 });
 
-
-
-// Login
+// =====================================================
+// AUTHENTICATION
+// =====================================================
 app.post("/api/login", async (req, res) => {
   const { identifier, password } = req.body;
   try {
@@ -295,8 +283,8 @@ app.post("/api/login", async (req, res) => {
       return res.status(401).json({ error: "User not found" });
 
     const user = results[0];
-    if (user.password !== password)
-      return res.status(401).json({ error: "Incorrect password" });
+    const match = await bcrypt.compare(password, user.password);
+    if (!match) return res.status(401).json({ error: "Incorrect password" });
 
     res.json({
       userId: user.user_id,
@@ -312,16 +300,16 @@ app.post("/api/login", async (req, res) => {
   }
 });
 
-// Signup
 app.post("/api/signup", async (req, res) => {
   const { name, username, email, phone, password } = req.body;
   if (!name || !username || !email || !phone || !password)
     return res.status(400).json({ error: "All fields are required" });
 
   try {
+    const hashed = await bcrypt.hash(password, 10);
     const [result] = await db.query(
       "INSERT INTO users (name, username, email, phone, password) VALUES (?, ?, ?, ?, ?)",
-      [name, username, email, phone, password]
+      [name, username, email, phone, hashed]
     );
 
     res.status(201).json({ message: "User created successfully", userId: result.insertId });
@@ -336,8 +324,6 @@ app.post("/api/signup", async (req, res) => {
 // =====================================================
 // PROFILE IMAGE
 // =====================================================
-
-// GET profile image
 app.get("/api/users/:userId/profile", async (req, res) => {
   const userId = req.params.userId;
   try {
@@ -353,7 +339,6 @@ app.get("/api/users/:userId/profile", async (req, res) => {
   }
 });
 
-// UPLOAD profile image
 app.post("/api/users/:userId/profile", upload.single("profile"), async (req, res) => {
   const userId = req.params.userId;
   if (!req.file) return res.status(400).json({ error: "No file uploaded" });
@@ -374,14 +359,12 @@ app.post("/api/users/:userId/profile", upload.single("profile"), async (req, res
   }
 });
 
-
 // =====================================================
 // TEST SERVER
 // =====================================================
 app.get("/test", (req, res) => {
   res.json({ status: "Server is running!" });
 });
-
 
 // =====================================================
 // START SERVER
@@ -390,8 +373,3 @@ app.listen(PORT, () => {
   console.log(`✅ AgroScan server running on http://localhost:${PORT}`);
   console.log(`👉 Active AI-Chat Provider: ${AI_PROVIDER}`);
 });
-
-
-
-
-
