@@ -22,6 +22,7 @@ import { askAI } from "./openai-recommend-handler.js";
 import { askAIChat } from "./openai-chat-handler.js";
 import { askHFRecommend } from "./huggingface-recommend-handler.js";
 import { askHFChat } from "./huggingface-chat-handler.js";
+import landsRouter from "./lands-handler.js";
 
 dotenv.config();
 
@@ -235,8 +236,7 @@ app.put("/api/users/:userId/address", async (req, res) => {
 // =====================================================
 // LAND MANAGEMENT
 // =====================================================
-const landsRouter = require('./lands-handler');
-app.use('/api/lands', landsRouter);
+app.use("/api/lands", landsRouter);
 
 
 
