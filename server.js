@@ -8,6 +8,7 @@
 //  Provides endpoints for Chat, Recommendation, User Management, and Profile handling.
 //  Supports both OpenAI and Hugging Face as AI providers.
 // -------------------------
+
 import express from "express";
 import dotenv from "dotenv";
 import bodyParser from "body-parser";
@@ -229,6 +230,15 @@ app.put("/api/users/:userId/address", async (req, res) => {
     res.status(500).json({ error: "Server error" });
   }
 });
+
+// =====================================================
+// LANDS MANAGEMENT
+// =====================================================
+import landsRouter from './lands-handler.js';
+
+// Mount the lands router
+// All routes will be: /api/users/:userId/lands
+app.use('/api/users/:userId/lands', landsRouter);
 
 // =====================================================
 // LOGIN / SIGNUP
