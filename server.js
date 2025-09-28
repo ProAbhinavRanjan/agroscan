@@ -1,6 +1,14 @@
 // -------------------------
-// AgroScan AI - server.js
+// AgroScan AI - Server.js
 // -------------------------
+// Author: ABHINAV RANJAN & Team
+// Company: AgroScan AI Solutions
+// Description:
+//  Main server file for AgroScan AI.
+//  Provides endpoints for Chat, Recommendation, User Management, and Profile handling.
+//  Supports both OpenAI and Hugging Face as AI providers.
+// -------------------------
+
 import express from "express";
 import dotenv from "dotenv";
 import bodyParser from "body-parser";
@@ -223,6 +231,15 @@ app.put("/api/users/:userId/address", async (req, res) => {
   }
 });
 
+
+// =====================================================
+// LAND MANAGEMENT
+// =====================================================
+const landsRouter = require('./lands-handler');
+app.use('/api/lands', landsRouter);
+
+
+
 // =====================================================
 // LOGIN / SIGNUP
 // =====================================================
@@ -318,3 +335,4 @@ app.listen(PORT, () => {
   console.log(`✅ AgroScan server running on http://localhost:${PORT}`);
   console.log(`👉 Active AI Provider: ${AI_PROVIDER}`);
 });
+
