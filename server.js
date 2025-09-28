@@ -231,113 +231,6 @@ app.put("/api/users/:userId/address", async (req, res) => {
   }
 });
 
-// =====================================================
-// LANDS MANAGEMENT (UPDATED WITH ADDRESS + SOIL INFO)
-// =====================================================
-
-// GET ALL LANDS FOR A USER
-app.get('/api/users/:userId/lands', async (req, res) => {
-  const { userId } = req.params;
-  try {
-    const [rows] = await db.query(
-      `SELECT id, land_name, size, crop, soil_type, ph, moisture, temperature, light,
-              street, city, state, zip, country, created_at
-       FROM lands 
-       WHERE user_id = ? 
-       ORDER BY created_at DESC`,
-      [userId]
-    );
-    res.json(rows);
-  } catch (err) {
-    console.error('❌ Fetch lands error:', err);
-    res.status(500).json({ error: 'Failed to fetch lands' });
-  }
-});
-
-// GET SINGLE LAND BY ID
-app.get('/api/users/:userId/lands/:landId', async (req, res) => {
-  const { userId, landId } = req.params;
-  try {
-    const [rows] = await db.query(
-      `SELECT id, land_name, size, crop, soil_type, ph, moisture, temperature, light,
-              street, city, state, zip, country, created_at
-       FROM lands 
-       WHERE user_id = ? AND id = ?`,
-      [userId, landId]
-    );
-
-    if (!rows.length) return res.status(404).json({ error: 'Land not found' });
-    res.json(rows[0]);
-  } catch (err) {
-    console.error('❌ Fetch single land error:', err);
-    res.status(500).json({ error: 'Failed to fetch land details' });
-  }
-});
-
-// ADD NEW LAND
-app.post('/api/users/:userId/lands', async (req, res) => {
-  const { userId } = req.params;
-  const { land_name, size, crop, soil_type, ph, moisture, temperature, light, street, city, state, zip, country } = req.body;
-
-  if (!land_name || !size) {
-    return res.status(400).json({ error: 'land_name and size are required' });
-  }
-
-  try {
-    const [result] = await db.query(
-      `INSERT INTO lands
-        (user_id, land_name, size, crop, soil_type, ph, moisture, temperature, light,
-         street, city, state, zip, country, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
-      [userId, land_name, size, crop || null, soil_type || null, ph || null, moisture || null,
-       temperature || null, light || null, street || null, city || null, state || null, zip || null, country || null]
-    );
-    res.status(201).json({ id: result.insertId, message: 'Land added successfully' });
-  } catch (err) {
-    console.error('❌ Add land error:', err);
-    res.status(500).json({ error: 'Failed to add land' });
-  }
-});
-
-// UPDATE LAND
-app.put('/api/users/:userId/lands/:landId', async (req, res) => {
-  const { userId, landId } = req.params;
-  const { land_name, size, crop, soil_type, ph, moisture, temperature, light, street, city, state, zip, country } = req.body;
-
-  try {
-    const [result] = await db.query(
-      `UPDATE lands SET
-         land_name = ?, size = ?, crop = ?, soil_type = ?, ph = ?, moisture = ?, temperature = ?, light = ?,
-         street = ?, city = ?, state = ?, zip = ?, country = ?
-       WHERE user_id = ? AND id = ?`,
-      [land_name, size, crop || null, soil_type || null, ph || null, moisture || null, temperature || null, light || null,
-       street || null, city || null, state || null, zip || null, country || null, userId, landId]
-    );
-
-    if (result.affectedRows === 0) return res.status(404).json({ error: 'Land not found' });
-    res.json({ message: 'Land updated successfully' });
-  } catch (err) {
-    console.error('❌ Update land error:', err);
-    res.status(500).json({ error: 'Failed to update land' });
-  }
-});
-
-// DELETE LAND
-app.delete('/api/users/:userId/lands/:landId', async (req, res) => {
-  const { userId, landId } = req.params;
-  try {
-    const [result] = await db.query(
-      'DELETE FROM lands WHERE user_id = ? AND id = ?',
-      [userId, landId]
-    );
-
-    if (result.affectedRows === 0) return res.status(404).json({ error: 'Land not found' });
-    res.json({ message: 'Land deleted successfully' });
-  } catch (err) {
-    console.error('❌ Delete land error:', err);
-    res.status(500).json({ error: 'Failed to delete land' });
-  }
-});
 
 // =====================================================
 // LOGIN / SIGNUP
@@ -434,6 +327,7 @@ app.listen(PORT, () => {
   console.log(`✅ AgroScan server running on http://localhost:${PORT}`);
   console.log(`👉 Active AI Provider: ${AI_PROVIDER}`);
 });
+
 
 
 
