@@ -232,9 +232,37 @@ app.put("/api/users/:userId/address", async (req, res) => {
 });
 
 // =====================================================
-// LANDS MANAGEMENT
+// LANDS MANAGEMENT (Inline in server.js)
 // =====================================================
-import landsRouter from './lands-handler.js';
+app.get('/api/users/:userId/lands', async (req, res) => {
+  const { userId } = req.params;
+  try {
+    const [rows] = await db.query(
+      'SELECT * FROM lands WHERE user_id = ? ORDER BY created_at DESC',
+      [userId]
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error("❌ fetch lands error:", err);
+    res.status(500).json({ error: 'Failed to fetch lands' });
+  }
+});
+
+app.post('/api/users/:userId/lands', async (req, res) => {
+  const { userId } = req.params;
+  const { land_name, size, crop } = req.body;
+  try {
+    const [result] = await db.query(
+      'INSERT INTO lands (user_id, land_name, size, crop) VALUES (?, ?, ?, ?)',
+      [userId, land_name, size, crop || null]
+    );
+    res.status(201).json({ id: result.insertId, message: 'Land added successfully' });
+  } catch (err) {
+    console.error("❌ add land error:", err);
+    res.status(500).json({ error: 'Failed to add land' });
+  }
+});
+
 
 // Mount the lands router
 // All routes will be: /api/users/:userId/lands
@@ -335,4 +363,5 @@ app.listen(PORT, () => {
   console.log(`✅ AgroScan server running on http://localhost:${PORT}`);
   console.log(`👉 Active AI Provider: ${AI_PROVIDER}`);
 });
+
 
