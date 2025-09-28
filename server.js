@@ -232,7 +232,7 @@ app.put("/api/users/:userId/address", async (req, res) => {
 });
 
 // =====================================================
-// LANDS MANAGEMENT (Inline in server.js)
+// LANDS MANAGEMENT (Inline)
 // =====================================================
 app.get('/api/users/:userId/lands', async (req, res) => {
   const { userId } = req.params;
@@ -243,7 +243,7 @@ app.get('/api/users/:userId/lands', async (req, res) => {
     );
     res.json(rows);
   } catch (err) {
-    console.error("❌ fetch lands error:", err);
+    console.error('❌ Fetch lands error:', err);
     res.status(500).json({ error: 'Failed to fetch lands' });
   }
 });
@@ -251,22 +251,22 @@ app.get('/api/users/:userId/lands', async (req, res) => {
 app.post('/api/users/:userId/lands', async (req, res) => {
   const { userId } = req.params;
   const { land_name, size, crop } = req.body;
+
+  if (!land_name || !size) {
+    return res.status(400).json({ error: 'land_name and size are required' });
+  }
+
   try {
     const [result] = await db.query(
-      'INSERT INTO lands (user_id, land_name, size, crop) VALUES (?, ?, ?, ?)',
+      'INSERT INTO lands (user_id, land_name, size, crop, created_at) VALUES (?, ?, ?, ?, NOW())',
       [userId, land_name, size, crop || null]
     );
     res.status(201).json({ id: result.insertId, message: 'Land added successfully' });
   } catch (err) {
-    console.error("❌ add land error:", err);
+    console.error('❌ Add land error:', err);
     res.status(500).json({ error: 'Failed to add land' });
   }
 });
-
-
-// Mount the lands router
-// All routes will be: /api/users/:userId/lands
-app.use('/api/users/:userId/lands', landsRouter);
 
 // =====================================================
 // LOGIN / SIGNUP
@@ -363,5 +363,6 @@ app.listen(PORT, () => {
   console.log(`✅ AgroScan server running on http://localhost:${PORT}`);
   console.log(`👉 Active AI Provider: ${AI_PROVIDER}`);
 });
+
 
 
