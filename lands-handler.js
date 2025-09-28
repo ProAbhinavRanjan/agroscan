@@ -1,12 +1,11 @@
-const express = require('express');
-const router = express.Router();
-const pool = require('./db'); // your MySQL connection pool
+import express from 'express';
+import pool from './db.js'; // your MySQL pool
 
-// ---------------------------
+const router = express.Router();
+
 // GET all lands for a user
-// ---------------------------
-router.get('/:userId', async (req, res) => {
-  const { userId } = req.params;
+router.get('/', async (req, res) => {
+  const userId = req.params.userId; // from mounted route
   try {
     const [rows] = await pool.query(
       'SELECT * FROM lands WHERE user_id = ? ORDER BY created_at DESC',
@@ -19,11 +18,9 @@ router.get('/:userId', async (req, res) => {
   }
 });
 
-// ---------------------------
 // POST: Add a new land
-// ---------------------------
-router.post('/:userId', async (req, res) => {
-  const { userId } = req.params;
+router.post('/', async (req, res) => {
+  const userId = req.params.userId; // from mounted route
   const { land_name, size, crop } = req.body;
   try {
     const [result] = await pool.query(
@@ -37,4 +34,4 @@ router.post('/:userId', async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;
