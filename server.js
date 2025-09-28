@@ -5,11 +5,9 @@
 // Company: AgroScan AI Solutions
 // Description:
 //  Main server file for AgroScan AI.
-//  Provides endpoints for Chat, Recommendation, User Management, Profile handling, and Land Management.
-//  Supports both OpenAI and Hugging Face AI providers.
-//  ESM compatible (import/export) version.
+//  Provides endpoints for Chat, Recommendation, User Management, and Profile handling.
+//  Supports both OpenAI and Hugging Face as AI providers.
 // -------------------------
-
 import express from "express";
 import dotenv from "dotenv";
 import bodyParser from "body-parser";
@@ -23,7 +21,6 @@ import { askAI } from "./openai-recommend-handler.js";
 import { askAIChat } from "./openai-chat-handler.js";
 import { askHFRecommend } from "./huggingface-recommend-handler.js";
 import { askHFChat } from "./huggingface-chat-handler.js";
-import landsRouter from "./lands-handler.js"; // <-- Fixed import for ES Modules
 
 dotenv.config();
 
@@ -68,10 +65,9 @@ app.post("/recommend", async (req, res) => {
 
     const ruleResponse = ruleEngine(ph, moisture, temperature);
 
-    const aiResponse =
-      AI_PROVIDER === "openai"
-        ? await askAI({ ph, moisture, temperature, location, desiredCrop })
-        : await askHFRecommend({ ph, moisture, temperature, location, desiredCrop });
+    const aiResponse = AI_PROVIDER === "openai"
+      ? await askAI({ ph, moisture, temperature, location, desiredCrop })
+      : await askHFRecommend({ ph, moisture, temperature, location, desiredCrop });
 
     res.json({ ruleEngine: ruleResponse, aiResponse });
   } catch (err) {
@@ -89,7 +85,6 @@ app.post("/chat", async (req, res) => {
     if (!message || !userId)
       return res.status(400).json({ error: "Message and userId required" });
 
-    // Fetch active session or create new
     const [rows] = await db.query(
       "SELECT session_id FROM chat_sessions WHERE user_id=? AND ended_at IS NULL LIMIT 1",
       [userId]
@@ -106,28 +101,25 @@ app.post("/chat", async (req, res) => {
       sessionId = rows[0].session_id;
     }
 
-    // Fetch last 20 chat messages
     const [historyRows] = await db.query(
       "SELECT sender, message FROM ai_chats WHERE user_id=? ORDER BY timestamp ASC LIMIT 20",
       [userId]
     );
 
-    // Insert user message
     await db.query(
       "INSERT INTO ai_chats (session_id,user_id,message,sender) VALUES (?,?,?, 'user')",
       [sessionId, userId, message]
     );
 
-    const messagesForAI = historyRows.map((m) => ({
+    const messagesForAI = historyRows.map(m => ({
       role: m.sender === "user" ? "user" : "assistant",
-      content: m.message,
+      content: m.message
     }));
     messagesForAI.push({ role: "user", content: message });
 
-    const aiResponse =
-      AI_PROVIDER === "openai"
-        ? await askAIChat(messagesForAI)
-        : await askHFChat(messagesForAI);
+    const aiResponse = AI_PROVIDER === "openai"
+      ? await askAIChat(messagesForAI)
+      : await askHFChat(messagesForAI);
 
     await db.query(
       "INSERT INTO ai_chats (session_id,user_id,message,sender) VALUES (?,?,?, 'ai')",
@@ -162,7 +154,7 @@ app.get("/api/chat/history/:userId", async (req, res) => {
 
     res.json({
       history: rows,
-      hasMore: offset + rows.length < totalRows[0].total,
+      hasMore: offset + rows.length < totalRows[0].total
     });
   } catch (err) {
     console.error("❌ chat history error:", err);
@@ -197,17 +189,9 @@ app.get("/api/users/:userId", async (req, res) => {
 
     const u = rows[0];
     res.json({
-      userId: u.user_id,
-      username: u.username,
-      name: u.name,
-      email: u.email,
-      phone: u.phone,
-      street: u.street,
-      city: u.city,
-      state: u.state,
-      zip: u.zip,
-      country: u.country,
-      profileUrl: `/api/users/${u.user_id}/profile`,
+      userId: u.user_id, username: u.username, name: u.name, email: u.email,
+      phone: u.phone, street: u.street, city: u.city, state: u.state, zip: u.zip,
+      country: u.country, profileUrl: `/api/users/${u.user_id}/profile`
     });
   } catch (err) {
     console.error("❌ get user error:", err);
@@ -247,11 +231,6 @@ app.put("/api/users/:userId/address", async (req, res) => {
 });
 
 // =====================================================
-// LAND MANAGEMENT
-// =====================================================
-app.use("/api/lands", landsRouter); // <-- ESM import fixed
-
-// =====================================================
 // LOGIN / SIGNUP
 // =====================================================
 app.post("/api/login", async (req, res) => {
@@ -267,12 +246,8 @@ app.post("/api/login", async (req, res) => {
     if (u.password !== password) return res.status(401).json({ error: "Incorrect password" });
 
     res.json({
-      userId: u.user_id,
-      username: u.username,
-      name: u.name,
-      email: u.email,
-      phone: u.phone,
-      profileUrl: `/api/users/${u.user_id}/profile`,
+      userId: u.user_id, username: u.username, name: u.name,
+      email: u.email, phone: u.phone, profileUrl: `/api/users/${u.user_id}/profile`
     });
   } catch (err) {
     console.error("❌ login error:", err);
@@ -350,3 +325,4 @@ app.listen(PORT, () => {
   console.log(`✅ AgroScan server running on http://localhost:${PORT}`);
   console.log(`👉 Active AI Provider: ${AI_PROVIDER}`);
 });
+
