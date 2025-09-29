@@ -340,27 +340,26 @@ app.put("/api/users/:userId/address", async (req, res) => {
   }
 });
 
-// Delete Account (Transaction-Safe)
 app.delete('/api/users/:userId', async (req, res) => {
-  const { userId } = req.params;
+  const userId = parseInt(req.params.userId, 10);
+  if (isNaN(userId)) return res.status(400).json({ error: 'Invalid user ID' });
 
-  const connection = await db.getConnection(); // get a dedicated connection
+  const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
 
-    // Check if user exists
     const [users] = await connection.query("SELECT * FROM users WHERE user_id=?", [userId]);
     if (!users.length) {
       await connection.rollback();
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Delete dependent data first
-    await connection.query("DELETE FROM lands WHERE user_id=?", [userId]);
+    // Delete dependent tables first
     await connection.query("DELETE FROM ai_chats WHERE user_id=?", [userId]);
     await connection.query("DELETE FROM chat_sessions WHERE user_id=?", [userId]);
+    await connection.query("DELETE FROM lands WHERE user_id=?", [userId]);
 
-    // Delete the user
+    // Delete user
     await connection.query("DELETE FROM users WHERE user_id=?", [userId]);
 
     await connection.commit();
@@ -368,11 +367,12 @@ app.delete('/api/users/:userId', async (req, res) => {
   } catch (err) {
     await connection.rollback();
     console.error("❌ delete account error:", err);
-    res.status(500).json({ error: 'Server error while deleting account' });
+    res.status(500).json({ error: err.message });
   } finally {
-    connection.release(); // release connection back to pool
+    connection.release();
   }
 });
+
 
 // =====================================================
 // LOGIN / SIGNUP
@@ -469,6 +469,7 @@ app.listen(PORT, () => {
   console.log(`✅ AgroScan server running on http://localhost:${PORT}`);
   console.log(`👉 Active AI Provider: ${AI_PROVIDER}`);
 });
+
 
 
 
