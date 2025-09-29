@@ -340,35 +340,41 @@ app.put("/api/users/:userId/address", async (req, res) => {
   }
 });
 
-// Delete User
+// ================================
+// DELETE USER ENDPOINT
+// ================================
 app.delete('/api/users/:userId', async (req, res) => {
-  const userId = parseInt(req.params.userId, 10);
-  if (isNaN(userId)) return res.status(400).json({ error: 'Invalid user ID' });
+  // Convert userId safely to integer
+  const userId = Number(req.params.userId);
+  if (!userId || isNaN(userId)) {
+    return res.status(400).json({ error: 'Invalid user ID' });
+  }
 
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
 
-    const [users] = await connection.query("SELECT * FROM users WHERE user_id=?", [userId]);
+    // Check if user exists
+    const [users] = await connection.query("SELECT * FROM users WHERE user_id = ?", [userId]);
     if (!users.length) {
       await connection.rollback();
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Delete dependent tables first
-    await connection.query("DELETE FROM ai_chats WHERE user_id=?", [userId]);
-    await connection.query("DELETE FROM chat_sessions WHERE user_id=?", [userId]);
-    await connection.query("DELETE FROM lands WHERE user_id=?", [userId]);
+    // Optionally: delete related data first (lands, orders, etc.)
+    await connection.query("DELETE FROM lands WHERE user_id = ?", [userId]);
+    // Add other dependent tables if needed
 
-    // Delete user
-    await connection.query("DELETE FROM users WHERE user_id=?", [userId]);
+    // Delete the user
+    await connection.query("DELETE FROM users WHERE user_id = ?", [userId]);
 
     await connection.commit();
-    res.json({ success: true, message: 'User account deleted successfully' });
+    res.json({ message: 'User deleted successfully' });
+
   } catch (err) {
     await connection.rollback();
-    console.error("❌ delete account error:", err);
-    res.status(500).json({ error: err.message });
+    console.error('Delete user error:', err);
+    res.status(500).json({ error: 'Server error while deleting user' });
   } finally {
     connection.release();
   }
@@ -471,6 +477,7 @@ app.listen(PORT, () => {
   console.log(`✅ AgroScan server running on http://localhost:${PORT}`);
   console.log(`👉 Active AI Provider: ${AI_PROVIDER}`);
 });
+
 
 
 
