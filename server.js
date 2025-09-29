@@ -15,8 +15,7 @@ import bodyParser from "body-parser";
 import cors from "cors";
 import multer from "multer";
 import mysql from "mysql2/promise";
-import bcrypt from 'bcrypt';
-
+import bcrypt from 'bcryptjs';
 
 // Local modules
 import { ruleEngine } from "./ruleEngine.js";
@@ -532,6 +531,7 @@ app.listen(PORT, () => {
   console.log(`✅ AgroScan server running on http://localhost:${PORT}`);
   console.log(`👉 Active AI Provider: ${AI_PROVIDER}`);
 });
+
 
 
 
