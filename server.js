@@ -146,6 +146,58 @@ app.delete('/api/users/:userId/lands/:landId', async (req, res) => {
   }
 });
 
+// =====================================================
+// ORDERS ENDPOINTS
+// =====================================================
+
+// GET all orders for a user
+app.get("/api/users/:userId/orders", async (req, res) => {
+  const { userId } = req.params;
+  try {
+    const [rows] = await db.query(
+      `SELECT * FROM orders WHERE user_id=? ORDER BY created_at DESC`,
+      [userId]
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error("❌ Fetch orders error:", err);
+    res.status(500).json({ error: "Failed to fetch orders" });
+  }
+});
+
+// POST new order (accepts array of items)
+app.post("/api/users/:userId/orders", async (req, res) => {
+  const { userId } = req.params;
+  const { items, address, payment_method, coupon_code } = req.body;
+
+  if (!items || !items.length) {
+    return res.status(400).json({ error: "Order items required" });
+  }
+
+  try {
+    const connection = await db.getConnection();
+    await connection.beginTransaction();
+
+    for (const item of items) {
+      const { name, qty, price } = item;
+      await connection.query(
+        `INSERT INTO orders 
+          (user_id, product_name, quantity, unit_price, item_total, address, payment_method, coupon_code)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [userId, name, qty, price, qty * price, address || null, payment_method || null, coupon_code || null]
+      );
+    }
+
+    await connection.commit();
+    connection.release();
+
+    res.status(201).json({ message: "Order placed successfully!" });
+  } catch (err) {
+    console.error("❌ Place order error:", err);
+    res.status(500).json({ error: "Failed to place order" });
+  }
+});
+
 
 // -------------------------
 // MySQL Pool
@@ -520,6 +572,7 @@ app.listen(PORT, () => {
   console.log(`✅ AgroScan server running on http://localhost:${PORT}`);
   console.log(`👉 Active AI Provider: ${AI_PROVIDER}`);
 });
+
 
 
 
