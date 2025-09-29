@@ -344,37 +344,34 @@ app.put("/api/users/:userId/address", async (req, res) => {
 // DELETE USER ENDPOINT
 // ================================
 app.delete('/api/users/:userId', async (req, res) => {
-  // Convert userId safely to integer
-  const userId = Number(req.params.userId);
-  if (!userId || isNaN(userId)) {
-    return res.status(400).json({ error: 'Invalid user ID' });
-  }
+  const userId = parseInt(req.params.userId, 10);
+  if (isNaN(userId)) return res.status(400).json({ error: 'Invalid user ID' });
 
-  const connection = await db.getConnection();
+  const connection = await db.getConnection(); // get DB connection
   try {
     await connection.beginTransaction();
 
-    // Check if user exists
-    const [users] = await connection.query("SELECT * FROM users WHERE user_id = ?", [userId]);
+    // 1️⃣ Check if user exists
+    const [users] = await connection.query("SELECT * FROM users WHERE user_id=?", [userId]);
     if (!users.length) {
       await connection.rollback();
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Optionally: delete related data first (lands, orders, etc.)
-    await connection.query("DELETE FROM lands WHERE user_id = ?", [userId]);
-    // Add other dependent tables if needed
+    // 2️⃣ Optional: Delete related data (e.g., lands, orders, etc.)
+    await connection.query("DELETE FROM lands WHERE user_id=?", [userId]);
+    // Add more deletes here if you have other tables with user data
 
-    // Delete the user
-    await connection.query("DELETE FROM users WHERE user_id = ?", [userId]);
+    // 3️⃣ Delete the user
+    await connection.query("DELETE FROM users WHERE user_id=?", [userId]);
 
     await connection.commit();
-    res.json({ message: 'User deleted successfully' });
+    res.json({ message: "User deleted successfully" });
 
   } catch (err) {
     await connection.rollback();
-    console.error('Delete user error:', err);
-    res.status(500).json({ error: 'Server error while deleting user' });
+    console.error("Delete user error:", err);
+    res.status(500).json({ error: "Server error while deleting user" });
   } finally {
     connection.release();
   }
@@ -477,6 +474,7 @@ app.listen(PORT, () => {
   console.log(`✅ AgroScan server running on http://localhost:${PORT}`);
   console.log(`👉 Active AI Provider: ${AI_PROVIDER}`);
 });
+
 
 
 
