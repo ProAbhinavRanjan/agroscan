@@ -340,6 +340,43 @@ app.put("/api/users/:userId/address", async (req, res) => {
   }
 });
 
+import bcrypt from 'bcrypt'; // if using ES Modules
+// or const bcrypt = require('bcrypt'); // for CommonJS
+
+// Change Password Endpoint
+app.put('/api/users/:userId/change-password', async (req, res) => {
+  const { userId } = req.params;
+  const { oldPassword, newPassword } = req.body;
+
+  if (!oldPassword || !newPassword) {
+    return res.status(400).json({ error: 'Old and new passwords are required' });
+  }
+
+  try {
+    // Fetch user from DB
+    const user = await User.findById(userId); // replace with your DB call
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    // Compare old password
+    const isMatch = await bcrypt.compare(oldPassword, user.password);
+    if (!isMatch) return res.status(401).json({ error: 'Old password is incorrect' });
+
+    // Hash new password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    // Update user password
+    user.password = hashedPassword;
+    await user.save();
+
+    res.json({ message: 'Password changed successfully!' });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // ================================
 // DELETE USER ENDPOINT
 // ================================
@@ -474,6 +511,7 @@ app.listen(PORT, () => {
   console.log(`✅ AgroScan server running on http://localhost:${PORT}`);
   console.log(`👉 Active AI Provider: ${AI_PROVIDER}`);
 });
+
 
 
 
