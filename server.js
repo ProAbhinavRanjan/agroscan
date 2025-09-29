@@ -340,39 +340,6 @@ app.put("/api/users/:userId/address", async (req, res) => {
   }
 });
 
-// ============================
-// DELETE USER ACCOUNT
-// ============================
-app.delete("/api/users/:userId", async (req, res) => {
-  const userId = req.params.userId;
-
-  try {
-    // Start transaction
-    await db.query("START TRANSACTION");
-
-    // Delete related data first
-    await db.query("DELETE FROM lands WHERE user_id = ?", [userId]);
-    await db.query("DELETE FROM ai_chats WHERE user_id = ?", [userId]);
-    await db.query("DELETE FROM chat_sessions WHERE user_id = ?", [userId]);
-
-    // Delete the user record
-    const [result] = await db.query("DELETE FROM users WHERE user_id = ?", [userId]);
-
-    if (!result.affectedRows) {
-      await db.query("ROLLBACK");
-      return res.status(404).json({ error: "User not found" });
-    }
-
-    // Commit if all queries succeeded
-    await db.query("COMMIT");
-
-    res.json({ success: true, message: "Account deleted successfully" });
-  } catch (err) {
-    console.error("❌ Delete user error:", err);
-    await db.query("ROLLBACK");
-    res.status(500).json({ error: "Failed to delete account" });
-  }
-});
 
 
 
@@ -471,6 +438,7 @@ app.listen(PORT, () => {
   console.log(`✅ AgroScan server running on http://localhost:${PORT}`);
   console.log(`👉 Active AI Provider: ${AI_PROVIDER}`);
 });
+
 
 
 
