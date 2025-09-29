@@ -341,26 +341,23 @@ app.put("/api/users/:userId/address", async (req, res) => {
 });
 
 
-// DELETE USER ACCOUNT
 app.delete('/api/users/:userId', async (req, res) => {
   const { userId } = req.params;
 
   try {
-    // Assuming you have an array or DB of users
-    // Example with in-memory DB:
-    if (!users[userId]) {
-      return res.status(404).json({ error: 'User not found' });
-    }
+    // Check if user exists
+    const [users] = await db.query("SELECT * FROM users WHERE id=?", [userId]);
+    if (!users.length) return res.status(404).json({ error: 'User not found' });
+
+    // Optional: Delete associated lands
+    await db.query("DELETE FROM lands WHERE user_id=?", [userId]);
 
     // Delete user
-    delete users[userId];
-
-    // Optional: Delete associated lands too
-    if (landsData[userId]) delete landsData[userId];
+    await db.query("DELETE FROM users WHERE id=?", [userId]);
 
     res.json({ success: true, message: 'User account deleted successfully' });
   } catch (err) {
-    console.error(err);
+    console.error("❌ delete account error:", err);
     res.status(500).json({ error: 'Server error while deleting account' });
   }
 });
@@ -461,6 +458,7 @@ app.listen(PORT, () => {
   console.log(`✅ AgroScan server running on http://localhost:${PORT}`);
   console.log(`👉 Active AI Provider: ${AI_PROVIDER}`);
 });
+
 
 
 
