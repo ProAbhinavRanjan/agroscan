@@ -15,6 +15,8 @@ import bodyParser from "body-parser";
 import cors from "cors";
 import multer from "multer";
 import mysql from "mysql2/promise";
+import bcrypt from 'bcrypt';
+
 
 // Local modules
 import { ruleEngine } from "./ruleEngine.js";
@@ -340,42 +342,61 @@ app.put("/api/users/:userId/address", async (req, res) => {
   }
 });
 
-import bcrypt from 'bcrypt'; // if using ES Modules
-// or const bcrypt = require('bcrypt'); // for CommonJS
-
-// Change Password Endpoint
+// ================================
+// CHANGE PASSWORD ENDPOINT
+// ================================
 app.put('/api/users/:userId/change-password', async (req, res) => {
-  const { userId } = req.params;
+  const userId = parseInt(req.params.userId, 10);
   const { oldPassword, newPassword } = req.body;
 
-  if (!oldPassword || !newPassword) {
-    return res.status(400).json({ error: 'Old and new passwords are required' });
-  }
+  if (isNaN(userId)) return res.status(400).json({ error: 'Invalid user ID' });
+  if (!oldPassword || !newPassword) return res.status(400).json({ error: 'Old and new passwords are required' });
 
+  const connection = await db.getConnection();
   try {
-    // Fetch user from DB
-    const user = await User.findById(userId); // replace with your DB call
-    if (!user) return res.status(404).json({ error: 'User not found' });
+    // Fetch current password
+    const [rows] = await connection.query(
+      "SELECT password FROM users WHERE user_id=? LIMIT 1",
+      [userId]
+    );
+    if (!rows.length) {
+      connection.release();
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const currentHashed = rows[0].password;
 
     // Compare old password
-    const isMatch = await bcrypt.compare(oldPassword, user.password);
-    if (!isMatch) return res.status(401).json({ error: 'Old password is incorrect' });
+    const isMatch = await bcrypt.compare(oldPassword, currentHashed);
+    if (!isMatch) {
+      connection.release();
+      return res.status(401).json({ error: 'Old password is incorrect' });
+    }
 
     // Hash new password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(newPassword, salt);
 
-    // Update user password
-    user.password = hashedPassword;
-    await user.save();
+    // Update password in DB
+    const [result] = await connection.query(
+      "UPDATE users SET password=? WHERE user_id=?",
+      [hashedPassword, userId]
+    );
 
+    connection.release();
+
+    if (!result.affectedRows) return res.status(404).json({ error: 'User not found' });
     res.json({ message: 'Password changed successfully!' });
 
   } catch (err) {
-    console.error(err);
+    connection.release();
+    console.error('❌ Change password error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
+
+
+
 
 // ================================
 // DELETE USER ENDPOINT
@@ -511,6 +532,7 @@ app.listen(PORT, () => {
   console.log(`✅ AgroScan server running on http://localhost:${PORT}`);
   console.log(`👉 Active AI Provider: ${AI_PROVIDER}`);
 });
+
 
 
 
