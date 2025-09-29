@@ -340,32 +340,39 @@ app.put("/api/users/:userId/address", async (req, res) => {
   }
 });
 
-
+// Delete Account (Transaction-Safe)
 app.delete('/api/users/:userId', async (req, res) => {
   const { userId } = req.params;
 
+  const connection = await db.getConnection(); // get a dedicated connection
   try {
+    await connection.beginTransaction();
+
     // Check if user exists
-    const [users] = await db.query("SELECT * FROM users WHERE user_id=?", [userId]);
-    if (!users.length) return res.status(404).json({ error: 'User not found' });
+    const [users] = await connection.query("SELECT * FROM users WHERE user_id=?", [userId]);
+    if (!users.length) {
+      await connection.rollback();
+      return res.status(404).json({ error: 'User not found' });
+    }
 
-    // Optional: Delete associated lands
-    await db.query("DELETE FROM lands WHERE user_id=?", [userId]);
-    // Optional: Delete associated ai chats
-    await db.query("DELETE FROM ai_chats WHERE user_id=?", [userId]);
-    // Optional: Delete associated ai chat sessions
-    await db.query("DELETE FROM chat_sessions WHERE user_id=?", [userId]);
+    // Delete dependent data first
+    await connection.query("DELETE FROM lands WHERE user_id=?", [userId]);
+    await connection.query("DELETE FROM ai_chats WHERE user_id=?", [userId]);
+    await connection.query("DELETE FROM chat_sessions WHERE user_id=?", [userId]);
 
-    // Delete user
-    await db.query("DELETE FROM users WHERE user_id=?", [userId]);
+    // Delete the user
+    await connection.query("DELETE FROM users WHERE user_id=?", [userId]);
 
+    await connection.commit();
     res.json({ success: true, message: 'User account deleted successfully' });
   } catch (err) {
+    await connection.rollback();
     console.error("❌ delete account error:", err);
     res.status(500).json({ error: 'Server error while deleting account' });
+  } finally {
+    connection.release(); // release connection back to pool
   }
 });
-
 
 // =====================================================
 // LOGIN / SIGNUP
@@ -462,6 +469,7 @@ app.listen(PORT, () => {
   console.log(`✅ AgroScan server running on http://localhost:${PORT}`);
   console.log(`👉 Active AI Provider: ${AI_PROVIDER}`);
 });
+
 
 
 
