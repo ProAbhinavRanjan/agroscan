@@ -564,6 +564,37 @@ app.post("/api/users/:userId/profile", upload.single("profile"), async (req, res
   }
 });
 
+// ===========================================
+// CONTROLS MANAGEMENT
+// ===========================================
+
+// Get all controls
+app.get('/api/controls', async (req, res) => {
+  try {
+    const [rows] = await db.query("SELECT function_name, value FROM controls");
+    res.json(rows);
+  } catch (err) {
+    console.error("❌ Fetch controls error:", err);
+    res.status(500).json({ error: "Failed to fetch controls" });
+  }
+});
+
+// Get a single control by function_name
+app.get('/api/controls/:function_name', async (req, res) => {
+  const { function_name } = req.params;
+  try {
+    const [rows] = await db.query(
+      "SELECT function_name, value FROM controls WHERE function_name=?",
+      [function_name]
+    );
+    if (!rows.length) return res.status(404).json({ error: "Control not found" });
+    res.json(rows[0]);
+  } catch (err) {
+    console.error("❌ Fetch control error:", err);
+    res.status(500).json({ error: "Failed to fetch control" });
+  }
+});
+
 
 ////////////////////////////////////////////////////////
 // DEVELOPER DESK
@@ -640,6 +671,7 @@ app.listen(PORT, () => {
   console.log(`✅ AgroScan server running on http://localhost:${PORT}`);
   console.log(`👉 Active AI Provider: ${AI_PROVIDER}`);
 });
+
 
 
 
