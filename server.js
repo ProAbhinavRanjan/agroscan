@@ -654,6 +654,56 @@ app.post("/api/sql-run", async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 });
+// PUT /api/devusers/:id/change-password
+app.put('/api/devusers/:id/change-password', async (req, res) => {
+  const { id } = req.params;
+  const { oldPassword, newPassword } = req.body;
+  try {
+    const [rows] = await db.query("SELECT password FROM devusers WHERE id = ?", [id]);
+    if (rows.length === 0) return res.status(404).json({ error: "DevUser not found" });
+
+    const match = await bcrypt.compare(oldPassword, rows[0].password);
+    if (!match) return res.status(400).json({ error: "Old password incorrect" });
+
+    const hashed = await bcrypt.hash(newPassword, 10);
+    await db.query("UPDATE devusers SET password = ? WHERE id = ?", [hashed, id]);
+
+    res.json({ message: "Password changed successfully" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Password change failed" });
+  }
+});
+// PUT /api/devusers/:id
+app.put('/api/devusers/:id', async (req, res) => {
+  const { id } = req.params;
+  const { name, email, phone } = req.body;
+  try {
+    await db.query(
+      "UPDATE devusers SET name = ?, email = ?, phone = ? WHERE id = ?",
+      [name, email, phone, id]
+    );
+    res.json({ message: "Profile updated" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Update failed" });
+  }
+});
+// GET /api/devusers/:id
+app.get('/api/devusers/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const [rows] = await db.query(
+      "SELECT id, name, email, phone FROM devusers WHERE id = ?",
+      [id]
+    );
+    if (rows.length === 0) return res.status(404).json({ error: "DevUser not found" });
+    res.json(rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
 
 ////////////////////////////////////////////////////////
 // DEPLOYMENT
@@ -671,6 +721,7 @@ app.listen(PORT, () => {
   console.log(`✅ AgroScan server running on http://localhost:${PORT}`);
   console.log(`👉 Active AI Provider: ${AI_PROVIDER}`);
 });
+
 
 
 
