@@ -35,6 +35,10 @@ const AI_PROVIDER = process.env.AI_PROVIDER || "openai";
 app.use(cors());
 app.use(bodyParser.json());
 
+////////////////////////////////////////////////////////
+// USER DESK
+////////////////////////////////////////////////////////
+
 // Multer setup for profile image uploads (memory storage)
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -560,13 +564,57 @@ app.post("/api/users/:userId/profile", upload.single("profile"), async (req, res
   }
 });
 
+
+////////////////////////////////////////////////////////
+// DEVELOPER DESK
+////////////////////////////////////////////////////////
+// Login using email/password
+app.post("/api/dev-login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) return res.status(400).json({ success: false, message: "Email & password required" });
+
+    const [rows] = await db.query("SELECT * FROM devusers WHERE email=? LIMIT 1", [email]);
+    if (!rows.length) return res.status(401).json({ success: false, message: "Developer not found" });
+
+    const dev = rows[0];
+    // Password verification (assuming plain text, bcrypt recommended)
+    if (dev.password !== password) return res.status(401).json({ success: false, message: "Incorrect password" });
+
+    res.json({ success: true, user: dev });
+  } catch (err) {
+    console.error("❌ dev-login error:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+// Login using UDC/QR code
+app.post("/api/dev-login-udc", async (req, res) => {
+  try {
+    const { uic } = req.body;
+    if (!uic) return res.status(400).json({ success: false, message: "UDC required" });
+
+    const [rows] = await db.query("SELECT * FROM devusers WHERE uic=? LIMIT 1", [uic]);
+    if (!rows.length) return res.status(401).json({ success: false, message: "Invalid UDC" });
+
+    const dev = rows[0];
+    res.json({ success: true, user: dev });
+  } catch (err) {
+    console.error("❌ dev-login-udc error:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+
+////////////////////////////////////////////////////////
+// DEPLOYMENT
+////////////////////////////////////////////////////////
 // =====================================================
 // TEST SERVER
 // =====================================================
 app.get("/test", (req, res) => {
   res.json({ status: "Server is running!" });
 });
-
 // =====================================================
 // START SERVER
 // =====================================================
@@ -574,6 +622,7 @@ app.listen(PORT, () => {
   console.log(`✅ AgroScan server running on http://localhost:${PORT}`);
   console.log(`👉 Active AI Provider: ${AI_PROVIDER}`);
 });
+
 
 
 
