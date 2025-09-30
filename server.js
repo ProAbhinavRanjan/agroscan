@@ -168,7 +168,7 @@ app.get("/api/users/:userId/orders", async (req, res) => {
 // POST new order (accepts array of items)
 app.post("/api/users/:userId/orders", async (req, res) => {
   const { userId } = req.params;
-  const { items, address, payment_method, coupon_code } = req.body;
+  const { items, address, payment_method, coupon_code, name, phone } = req.body;
 
   if (!items || !items.length) {
     return res.status(400).json({ error: "Order items required" });
@@ -179,12 +179,13 @@ app.post("/api/users/:userId/orders", async (req, res) => {
     await connection.beginTransaction();
 
     for (const item of items) {
-      const { name, qty, price } = item;
+      const { name: productName, qty, price } = item;
+
       await connection.query(
         `INSERT INTO orders 
-          (user_id, product_name, quantity, unit_price, item_total, address, payment_method, coupon_code)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [userId, name, qty, price, qty * price, address || null, payment_method || null, coupon_code || null]
+         (user_id, customer_name, customer_phone, product_name, quantity, unit_price, item_total, address, payment_method, coupon_code)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [userId, name, phone, productName, qty, price, qty * price, address || null, payment_method || null, coupon_code || null]
       );
     }
 
@@ -197,6 +198,7 @@ app.post("/api/users/:userId/orders", async (req, res) => {
     res.status(500).json({ error: "Failed to place order" });
   }
 });
+
 
 
 // -------------------------
@@ -572,6 +574,7 @@ app.listen(PORT, () => {
   console.log(`✅ AgroScan server running on http://localhost:${PORT}`);
   console.log(`👉 Active AI Provider: ${AI_PROVIDER}`);
 });
+
 
 
 
