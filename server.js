@@ -605,21 +605,16 @@ app.post("/api/dev-login-udc", async (req, res) => {
   }
 });
 
-// DEVELOPER SQL RUN
+// DEVELOPER SQL RUN - No restrictions
 app.post("/api/sql-run", async (req, res) => {
   try {
     const { sql } = req.body;
+
     if (!sql || typeof sql !== "string") {
       return res.status(400).json({ success: false, error: "SQL query required" });
     }
 
-    // Only allow SELECT, UPDATE, INSERT, DELETE
-    const forbidden = /DROP|TRUNCATE|ALTER|CREATE|RENAME|USE/i;
-    if (forbidden.test(sql)) {
-      return res.status(403).json({ success: false, error: "This SQL operation is forbidden!" });
-    }
-
-    // Execute query
+    // Execute query without blocking anything
     const [rows] = await db.query(sql);
     res.json({ success: true, result: rows });
 
@@ -628,7 +623,6 @@ app.post("/api/sql-run", async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 });
-
 
 ////////////////////////////////////////////////////////
 // DEPLOYMENT
@@ -646,6 +640,7 @@ app.listen(PORT, () => {
   console.log(`✅ AgroScan server running on http://localhost:${PORT}`);
   console.log(`👉 Active AI Provider: ${AI_PROVIDER}`);
 });
+
 
 
 
