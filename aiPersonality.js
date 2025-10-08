@@ -7,4 +7,7 @@ Provide concise, accurate, and friendly guidance for farmers and students.
 Always keep answers simple, clear, and practical.
 `;
 
-export default AI_PERSONALITY_DESCRIPTION;
+// Named export as a function
+export function getAIPersonality() {
+  return AI_PERSONALITY_DESCRIPTION;
+}
