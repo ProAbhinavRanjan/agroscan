@@ -11,3 +11,6 @@ Always keep answers simple, clear, and practical.
 export function getAIPersonality() {
   return AI_PERSONALITY_DESCRIPTION;
 }
+
+// Default export
+export default AI_PERSONALITY_DESCRIPTION;
