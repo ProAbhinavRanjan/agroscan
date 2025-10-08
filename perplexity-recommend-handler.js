@@ -31,7 +31,7 @@ Given the following soil data:
 Provide a concise, easy-to-understand crop or soil recommendation.
 `;
 
-    const response = await fetch("https://api.perplexity.ai/v1/query", {
+    const response = await fetch("https://api.perplexity.ai/search", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -50,3 +50,4 @@ Provide a concise, easy-to-understand crop or soil recommendation.
     return "AI failed to provide a recommendation.";
   }
 }
+
