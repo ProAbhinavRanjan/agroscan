@@ -61,4 +61,3 @@ export async function askPerplexityChat(messages) {
     return "AI failed to respond";
   }
 }
-

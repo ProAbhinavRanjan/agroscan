@@ -50,4 +50,3 @@ Provide a concise, easy-to-understand crop or soil recommendation.
     return "AI failed to provide a recommendation.";
   }
 }
-
