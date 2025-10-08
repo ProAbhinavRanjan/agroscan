@@ -1,14 +1,11 @@
 // perplexity-recommend-handler.js
-import { Perplexity } from "perplexity"; // Ensure you have the Perplexity SDK installed
 import dotenv from "dotenv";
-import aiPersonality from "./aiPersonality.js"; // Importing AI personality description
+import fetch from "node-fetch"; // For HTTP API calls
+import aiPersonality from "./aiPersonality.js"; // AI personality description
 
 dotenv.config();
 
-// Initialize Perplexity client using the API key from environment variables
-const client = new Perplexity({
-  apiKey: process.env.PERPLEXITY_API_KEY,
-});
+const PERPLEXITY_API_KEY = process.env.PERPLEXITY_API_KEY;
 
 /**
  * Generates a recommendation for crops or soil based on provided parameters.
@@ -23,7 +20,6 @@ export async function askPerplexityRecommend(params) {
   const { ph, moisture, temperature, desiredCrop } = params;
 
   try {
-    // Constructing the prompt with AI personality description
     const prompt = `
 You are an agriculture AI assistant. Your personality is: ${aiPersonality.description}
 Given the following soil data:
@@ -35,16 +31,20 @@ Given the following soil data:
 Provide a professional, easy-to-understand crop or soil recommendation.
 `;
 
-    // Making the API call to Perplexity's chat completions endpoint
-    const response = await client.chat.completions.create({
-      model: "sonar-pro", // Specify the model to use
-      messages: [
-        { role: "user", content: prompt },
-      ],
+    const response = await fetch("https://api.perplexity.ai/v1/query", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${PERPLEXITY_API_KEY}`
+      },
+      body: JSON.stringify({
+        prompt,
+        max_tokens: 100,
+      }),
     });
 
-    // Returning the AI's response
-    return response.choices[0].message.content.trim();
+    const data = await response.json();
+    return data.answer?.trim() || "AI failed to provide a recommendation.";
   } catch (err) {
     console.error("❌ Error in Perplexity recommendation:", err);
     return "AI failed to provide a recommendation.";
