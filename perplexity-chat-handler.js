@@ -16,7 +16,7 @@ const PERPLEXITY_API_KEY = process.env.PERPLEXITY_API_KEY;
 async function queryPerplexityAI(prompt, maxTokens = 100) {
   try {
     const response = await axios.post(
-      "https://api.perplexity.ai/v1/query",
+      "https://api.perplexity.ai/search",
       { prompt, max_tokens: maxTokens },
       {
         headers: {
@@ -61,3 +61,4 @@ export async function askPerplexityChat(messages) {
     return "AI failed to respond";
   }
 }
+
