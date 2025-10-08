@@ -1,7 +1,6 @@
 // perplexity-recommend-handler.js
 import dotenv from "dotenv";
 import fetch from "node-fetch"; // For HTTP API calls
-import aiPersonality from "./aiPersonality.js"; // AI personality description
 
 dotenv.config();
 
@@ -20,15 +19,16 @@ export async function askPerplexityRecommend(params) {
   const { ph, moisture, temperature, desiredCrop } = params;
 
   try {
+    // Simple prompt without external personality
     const prompt = `
-You are an agriculture AI assistant. Your personality is: ${aiPersonality.description}
+You are a professional agriculture AI assistant.
 Given the following soil data:
 - pH: ${ph}
 - Moisture: ${moisture}
 - Temperature: ${temperature}
 - Desired Crop: ${desiredCrop || "any suitable crop"}
 
-Provide a professional, easy-to-understand crop or soil recommendation.
+Provide a concise, easy-to-understand crop or soil recommendation.
 `;
 
     const response = await fetch("https://api.perplexity.ai/v1/query", {
