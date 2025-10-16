@@ -1034,6 +1034,28 @@ app.get("/api/dev/tables", async (req, res) => {
   }
 });
 
+// Get all orders
+app.get('/api/orders', (req, res) => {
+  db.query('SELECT * FROM orders', (err, results) => {
+    if(err) return res.status(500).json({error: err});
+    res.json(results);
+  });
+});
+
+// Update order by ID
+app.put('/api/orders/:id', (req, res) => {
+  const { customer, product, quantity, status } = req.body;
+  const id = req.params.id;
+  db.query(
+    'UPDATE orders SET customer=?, product=?, quantity=?, status=? WHERE id=?',
+    [customer, product, quantity, status, id],
+    (err, result) => {
+      if(err) return res.status(500).json({error: err});
+      res.json({message: 'Order updated successfully!'});
+    }
+  );
+});
+
 // =====================================================
 // DEPLOYMENT AND SERVER START
 // =====================================================
@@ -1044,3 +1066,4 @@ app.listen(PORT, () => {
   console.log(`✅ AgroScan server running on http://localhost:${PORT}`);
   console.log(`👉 Active AI Provider: ${AI_PROVIDER}`);
 });
+
